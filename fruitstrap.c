@@ -5,7 +5,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/stat.h>
-#include <stdio.h>
+#include <stdlib.h>
 #include <signal.h>
 #include <getopt.h>
 #include "MobileDevice.h"
@@ -604,10 +604,7 @@ void upload_file(AMDeviceRef device) {
     {
         target_filename = get_filename_from_path(doc_file_path);
     }
-    char *target_path = malloc(sizeof("/Documents/") + strlen(target_filename) + 1);
-    strcat(target_path, "/Documents/");
-    strcat(target_path, target_filename);
-    
+
     size_t file_size;
     void* file_content = read_file_to_memory(doc_file_path, &file_size);
     
@@ -616,8 +613,22 @@ void upload_file(AMDeviceRef device) {
         PRINT("Could not open file: %s\n", doc_file_path);
         exit(-1);
     }
-    
-    assert(AFCFileRefOpen(afc_conn_p, target_path, 3, &file_ref) == 0);
+
+    // Make sure the directory was created
+    {
+        char *dirpath = strdup(target_filename);
+        char *c = dirpath, *lastSlash = dirpath;
+        while(*c) {
+            if(*c == '/') {
+                lastSlash = c;
+            }
+            c++;
+        }
+        *lastSlash = '\0';
+        assert(AFCDirectoryCreate(afc_conn_p, dirpath) == 0);
+    }
+
+    assert(AFCFileRefOpen(afc_conn_p, target_filename, 3, &file_ref) == 0);
     assert(AFCFileRefWrite(afc_conn_p, file_ref, file_content, file_size) == 0);
     assert(AFCFileRefClose(afc_conn_p, file_ref) == 0);
     assert(AFCConnectionClose(afc_conn_p) == 0);
